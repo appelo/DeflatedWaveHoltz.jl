@@ -3,12 +3,16 @@ module DeflatedWaveHoltz
 using LinearAlgebra, SparseArrays, SummationByPartsOperators   
 
 export DirichletProb2D 
+
 export set_gauss_forcing!
+
+export compute_a0, WHI_operator!
 
 Prob2D = Union{DirichletProb2D}
 
 include("dirichletproblem2d.jl")
 include("forcing.jl")
+include("waveholtzoperators.jl")
 
 Base.show(io::IO, dp::DirichletProb2D) =
     print(io,"Dirichlet Problem at omega = ",

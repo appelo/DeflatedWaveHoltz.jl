@@ -14,5 +14,4 @@ function set_gauss_forcing!(P2D::Prob2D,x0::Float64,y0::Float64)
                     (x_grid[i]-x0)^2+(y_grid[j]-y0)^2))
         end
     end
-    
 end

@@ -58,14 +58,14 @@ mutable struct DirichletProb2D
         Dyy = Dyy[2:end-1,2:end-1]
         My = My[2:end-1,2:end-1]    
 
-        Mass = kron(Mx,My)
-        Lap = kron(Dxx,sparse(I, Ny, Ny)) + kron(sparse(I, Nx, Nx),Dyy)
+        Mass = kron(My,Mx)
+        Lap = kron(Dyy,sparse(I, Nx, Nx)) + kron(sparse(I, Ny, Ny),Dxx)
         N = Nx*Ny
         hx = x_grid[2]-x_grid[1]
         hy = y_grid[2]-y_grid[1]
 
         # Time stepping 
-        Np  = 1
+        Np  = 5
                         
         T = 2.0*pi/omega
         Tp = Np*T
