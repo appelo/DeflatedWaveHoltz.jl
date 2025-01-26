@@ -1,7 +1,15 @@
 name = "DeflatedWaveHoltz"
+uuid = "af1cf9b0-8caa-48c3-ba7e-2b5e22823834"
 authors = ["Daniel Appelo <appelo@vt.edu>"]
 version = "0.0.1"
-uuid = "af1cf9b0-8caa-48c3-ba7e-2b5e22823834"
 
 [deps]
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+SummationByPartsOperators = "9f78cca6-572e-554e-b819-917d2f1cf240"
+
+[compat]
+Revise = "3.7.2"
+SparseArrays = "1.11.0"
+SummationByPartsOperators = "0.5.74"
