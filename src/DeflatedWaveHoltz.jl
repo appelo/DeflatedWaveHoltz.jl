@@ -2,17 +2,21 @@ module DeflatedWaveHoltz
 
 using LinearAlgebra, SparseArrays, SummationByPartsOperators   
 
+include("dirichletproblem2d.jl")
 export DirichletProb2D 
-
-export set_gauss_forcing!
-
-export compute_a0, WHI_operator!
-
 Prob2D = Union{DirichletProb2D}
 
-include("dirichletproblem2d.jl")
+
 include("forcing.jl")
+export set_gauss_forcing!
+
 include("waveholtzoperators.jl")
+export compute_a0, WHI_operator!
+
+include("deflationfunctions.jl")
+export epair_1d_laplace, bfunex
+
+Base.broadcastable(x::Prob2D) =  Ref(x)
 
 Base.show(io::IO, dp::DirichletProb2D) =
     print(io,"Dirichlet Problem at omega = ",

@@ -37,23 +37,22 @@ mutable struct DirichletProb2D
         Nlam = (ymax-ymin)/lam
         PPW = pi*(Nlam/ep_tol)^(1/order)
         Ny = Int(ceil(Nlam*PPW))
-
+        println(Nx,Ny)
         # SBP operators for zero Dirichlet BC
         D2X = derivative_operator(MattssonNordström2004(),
                                   2,order,xmin,xmax,Nx+2)
         x_grid = grid(D2X)
         x_grid = x_grid[2:end-1]
-        Mx = mass_matrix(D2X)
+        Mx = sparse(mass_matrix(D2X))
         Dxx = sparse(D2X)
         Dxx = Dxx[2:end-1,2:end-1]
         Mx = Mx[2:end-1,2:end-1]    
-
 
         D2Y = derivative_operator(MattssonNordström2004(),
                                   2,order,ymin,ymax,Ny+2)
         y_grid = grid(D2Y)
         y_grid = y_grid[2:end-1]
-        My = mass_matrix(D2Y)
+        My = sparse(mass_matrix(D2Y))
         Dyy = sparse(D2Y)
         Dyy = Dyy[2:end-1,2:end-1]
         My = My[2:end-1,2:end-1]    
