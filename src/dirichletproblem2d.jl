@@ -27,7 +27,8 @@ mutable struct DirichletProb2D
         ymin::Float64,
         ymax::Float64,
         order::Int64,
-        ep_tol::Float64)
+        ep_tol::Float64;
+        Np::Int64 = 1)
         
         # Use PPW estimate to choose number of gridpoints
         lam = 2*pi/omega
@@ -64,7 +65,6 @@ mutable struct DirichletProb2D
         hy = y_grid[2]-y_grid[1]
 
         # Time stepping 
-        Np  = 5
                         
         T = 2.0*pi/omega
         Tp = Np*T

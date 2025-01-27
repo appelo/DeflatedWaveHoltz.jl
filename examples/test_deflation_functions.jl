@@ -7,12 +7,16 @@ function t()
     keig = 10
     omega = 5.3
 
+    Np = 10
+    
     xmin = -1.0
     xmax =  1.0
     ymin = -2.0
     ymax =  2.0
 
-    DP  = DeflatedWaveHoltz.DirichletProb2D(omega,xmin,xmax,ymin,ymax,order,ep_tol)
+    DP  =
+    DeflatedWaveHoltz.DirichletProb2D(omega,xmin,xmax,ymin,ymax,order,ep_tol,Np
+    = Np)
 
     EVEC1DX = zeros(DP.Nx,DP.Nx)
     EVAL1DX = zeros(DP.Nx)
@@ -57,9 +61,32 @@ function t()
     plot!(pl,sqrt.(-Lambdas[:,1]),abs.(1.0 .- bfunex.(Lambdas[:,1],DP)),marker = :+,seriestype=:scatter)
     plot!(pl,sqrt.(-l2a),abs.(1.0 .- eigs),marker = :c,mc = :black,seriestype=:scatter,ylim = (-0.1,1.6),xlim = (0,3*omega))
     display(pl)
-    println("ACR ",minimum(abs.(-1.0 .+ eigs)))
+    println("ACR ",maximum(eigs))
+
+    N = DP.N
+    Nx = DP.Nx
+    Ny = DP.Ny
+    W = zeros(N,keig)
+    for kl = 1:keig
+        for j = 1:Ny
+            for i = 1:Nx
+                W[i+(j-1)*Nx,kl] = EVEC1DX[i,klarr[kl,1]]*EVEC1DY[j,klarr[kl,2]]
+            end
+        end
+    end
+
+    TMP  = zeros(N,keig)
+    WTA  = zeros(keig,N)
+    WTAW  = zeros(keig,keig)
+    for kl = 1:keig
+        eig_tmp = -(EVAL1DX[klarr[kl,1]]/DP.hx^2 + EVAL1DY[klarr[kl,2]]/DP.hy^2)
+        eigs[kl] = bfunex(eig_tmp,DP)
+        TMP[:,kl] .= eigs[kl]*W[:,kl]
+        WTAW[kl,kl] = eigs[kl]
+    end
+    WTA .= TMP'
     
-    return EVAL1DX,EVEC1DX,EVAL1DY,EVEC1DY
+    return nothing
 end
 
-EX,VX,EY,VY = t()
+t()
