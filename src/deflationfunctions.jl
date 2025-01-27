@@ -1,4 +1,4 @@
-
+  
 function epair_1d_laplace(i,n)
     lam = 2*(1-cos(i*pi/(n+1)))
     evec = sqrt(2/(n+1))*sin.(pi/(n+1)*i*collect(1:n))

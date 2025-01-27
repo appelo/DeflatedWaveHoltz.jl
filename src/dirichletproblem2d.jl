@@ -69,8 +69,8 @@ mutable struct DirichletProb2D
         T = 2.0*pi/omega
         Tp = Np*T
         dt = 0.5*min(hx,hy)
-        Nt = Int(ceil(Tp/dt))
-                
+        Nt = Np*min(Int(ceil(T/dt)),5)
+        dt = Tp/Nt
         um = zeros(N)
         u = zeros(N)
         up = zeros(N)

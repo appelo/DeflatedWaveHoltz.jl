@@ -18,7 +18,6 @@ function t()
     contour(DP.x_grid,DP.y_grid,transpose(reshape(DP.force,DP.Nx,DP.Ny)),
             aspect_ratio = 1.0)
 
-
     show(DP)
     uin = zeros(DP.N)
     uproj = zeros(DP.N)
