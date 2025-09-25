@@ -69,7 +69,7 @@ mutable struct DirichletProb2D
         T = 2.0*pi/omega
         Tp = Np*T
         dt = 0.5*min(hx,hy)
-        Nt = Np*min(Int(ceil(T/dt)),5)
+        Nt = Np*max(Int(ceil(T/dt)),5)
         dt = Tp/Nt
         um = zeros(N)
         u = zeros(N)
@@ -79,4 +79,37 @@ mutable struct DirichletProb2D
             Lap,Mass,Np,Tp,T,um,u,up,
             force,x_grid,y_grid,order)
     end
+    function DirichletProb2D(
+        omega::Float64,
+        x_grid::Array{Float64},
+        y_grid::Array{Float64},
+        Lap::SparseMatrixCSC{Float64, Int64},
+        ep_tol::Float64;
+        Np::Int64 = 1)
+
+        # assume order is 2
+        order = 2
+        Nx = length(x_grid)
+        Ny = length(x_grid)
+        N = Nx*Ny
+        println(Nx,Ny)
+        Mass = kron(sparse(I, Nx, Nx),sparse(I, Ny, Ny))
+        hx = x_grid[2]-x_grid[1]
+        hy = y_grid[2]-y_grid[1]
+
+        # Time stepping 
+        T = 2.0*pi/omega
+        Tp = Np*T
+        dt = 0.5*min(hx,hy)
+        Nt = Np*max(Int(ceil(T/dt)),5)
+        dt = Tp/Nt
+        um = zeros(N)
+        u = zeros(N)
+        up = zeros(N)
+        force = zeros(N)
+        new(omega,Nx,Ny,Nt,N,hx,hy,dt,
+            Lap,Mass,Np,Tp,T,um,u,up,
+            force,x_grid,y_grid,order)
+    end
+
 end

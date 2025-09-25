@@ -1,17 +1,21 @@
 module DeflatedWaveHoltz
 
-using LinearAlgebra, SparseArrays, SummationByPartsOperators   
+using LinearAlgebra, SparseArrays, SummationByPartsOperators, IterativeSolvers, AlgebraicMultigrid
 
 include("dirichletproblem2d.jl")
 export DirichletProb2D 
 Prob2D = Union{DirichletProb2D}
+
+include("dirichletproblem2di.jl")
+export DirichletProb2Di 
+Prob2D = Union{DirichletProb2D,DirichletProb2Di}
 
 
 include("forcing.jl")
 export set_gauss_forcing!
 
 include("waveholtzoperators.jl")
-export compute_a0, WHI_operator!
+export compute_a0, WHI_operator!, WHI_operator_hom!, WHI_operator_i!, WHI_operator_homi!
 
 include("deflationfunctions.jl")
 export epair_1d_laplace, bfunex
