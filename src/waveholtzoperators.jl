@@ -92,6 +92,48 @@ function WHI_operator_hom!(uproj,uin,DP::Prob2D)
     uproj .= (2.0*dt/T).*uproj
 end
 
+function S_WHI_operator_hom!(uproj,uin,DP::Prob2D)
+
+    # I - Pi
+    
+    # Use the arrays allocated in the problem struct
+    u = DP.u
+    um = DP.um
+    up = DP.up
+    omega = DP.omega
+    dt = DP.dt
+    nt = DP.Nt
+    A = DP.Lap
+    T = DP.Tp
+    
+    # Fix up the timestep to be exact at omega
+    dt2 = (2*sin(dt*omega/2)/omega)^2
+    a0 = compute_a0(DP)
+    
+    # Start from the inital data provided as input
+    u .= uin
+    
+    # Initialize to have zero velocity  
+    um .= uin
+    mul!(um,A,u,0.5*dt2,1.0)
+    # Integration in the fist step
+    tt = 0.0
+    uproj .= (1.0*(cos(omega*tt)-a0)).*u
+    # Loop over time
+    for it = 1:nt-1
+        up .= 2.0.*u
+        mul!(up,A,u,dt2,1.0)
+        up .-= um
+        # Swap
+        um .= u
+        u .= up
+        tt = it*dt
+        uproj .+= (cos(omega*(tt))-a0).*u
+    end
+    # Normalize the integral and subtract from uin
+    uproj .= uin - (2.0*dt/T).*uproj
+end
+
 
 
 #######################################################################
@@ -241,5 +283,54 @@ function WHI_operator_homi!(uproj,uin,DP::Prob2D)
     end
     # Normalize the integral
     uproj .= (2.0*dt/T).*(uproj-0.5*(cos(omega*T)-a0).*u)
+    
+end
+
+function S_WHI_operator_homi!(uproj,uin,DP::Prob2D)
+    # I - Pi
+
+    # Use the arrays allocated in the problem struct
+    u = DP.u
+    um = DP.um
+    up = DP.up
+    rhside = DP.rhside
+    dt = DP.dt
+    dt2 = dt*dt
+    nt = DP.Nt
+    A = DP.Lap
+    T = DP.Tp
+
+    omega = DP.omega
+    cos_omega_dt = cos(omega*dt)
+    # Fix up the timestep to be exact at omega
+    a0 = 0.5*tan(0.5*omega*dt)/tan(omega*dt)
+
+    # Start from the inital data provided as input
+    u .= uin
+    # Initialize to have zero velocity  
+    up .= 2.0*u
+    um, log1 = cg(DP.G,up,Pl=DP.precond,
+                  log=true,reltol=1e-12,verbose=false,
+                  maxiter=100)
+    um .*= 0.5
+
+    # Integration in the fist step
+    tt = 0.0
+    uproj .= (0.5*(cos(omega*tt)-a0)).*u
+    # Loop over time
+    for it = 1:nt
+        rhside .= 2.0*u
+        up, log1 = cg(DP.G,rhside,Pl=DP.precond,
+                      log=true,reltol=1e-12,verbose=false,
+                      maxiter=100)
+        up .-= um
+        # Swap
+        um .= u
+        u .= up
+        tt = it*dt
+        uproj .+= (cos(omega*(tt))-a0).*u
+    end
+    # Normalize the integral
+    uproj .= uin - (2.0*dt/T).*(uproj-0.5*(cos(omega*T)-a0).*u)
     
 end
