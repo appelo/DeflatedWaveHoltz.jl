@@ -1,5 +1,5 @@
 using DeflatedWaveHoltz
-using LinearAlgebra, SparseArrays, SummationByPartsOperators, IterativeSolvers, AlgebraicMultigrid, LinearMaps, ArnoldiMethod, Plots
+using LinearAlgebra, SparseArrays, SummationByPartsOperators, IterativeSolvers, AlgebraicMultigrid, LinearMaps, ArnoldiMethod, Plots,JLD2,LaTeXStrings
 
 function construct_grid(x_left,x_right,y_left,y_right,Nx,Ny)
     dx = (x_right-x_left)/(Nx+1)
@@ -19,7 +19,7 @@ function construct_grid(x_left,x_right,y_left,y_right,Nx,Ny)
 end
 
 function c_square(x,y)
-    res = 0.5+0.5 / (1.0+(x+0.1)^2+(y-0.12)^2)
+    res = 1.0 - 0.5/(1.0+(x+0.1)^2+(y-0.2)^2)^4
     return res;
 end
 
@@ -93,7 +93,38 @@ function spatial_discretization(x_interior,y_interior,dx,dy,Nx,Ny,N)
 end
 
 
-function run_example(omega, ep_tol, explicit = true, deflate = false, nev = 5)
+function find_deflate(omega, ep_tol, explicit = true, nev = 5,evtol = 1e-12, fname = "d.jld2")
+
+    println("Number of ev = ",nev)
+    # Use PPW estimate to choose number of gridpoints
+    lam = 2*pi/omega
+    Nlam = 2.0/lam
+    PPW = pi*(Nlam/ep_tol)^(1/2)
+    Nx = Int(ceil(Nlam*PPW))
+    Ny = Nx
+    N = Nx*Ny
+    println("(Nx,Ny,N) = (",Nx,", ",Ny,", ",N,")")
+    x_grid,y_grid,dx,dy = construct_grid(0.0,pi,0.0,pi,Nx,Ny)
+    x_interior = x_grid[2:Nx+1];
+    y_interior = y_grid[2:Ny+1];
+    Lap = spatial_discretization(x_interior,y_interior,dx,dy,Nx,Ny,N)
+
+    if explicit
+        DP = DeflatedWaveHoltz.DirichletProb2D(omega,x_interior,y_interior,Lap,ep_tol)
+        A_whi_ex!(y,x) = WHI_operator_hom!(y,x,DP)
+        ALM = LinearMap(A_whi_ex!,DP.N,DP.N,issymmetric = true,ismutating=true,isposdef=false)
+    else
+        DP = DeflatedWaveHoltz.DirichletProb2Di(omega,x_interior,y_interior,Lap,ep_tol)
+        A_whi_im!(y,x) = WHI_operator_homi!(y,x,DP)
+        ALM = LinearMap(A_whi_im!,DP.N,DP.N,issymmetric = true,ismutating=true,isposdef=false)
+    end
+    decomp, history = partialschur(ALM, nev=nev, tol=evtol, which=:LR)
+    jldsave(fname;decomp = decomp)
+    println(history)
+    return history
+end
+
+function run_example_from_file(omega, ep_tol, explicit = true, nev = 5,cgtol = 1e-12,fname="d.jld2")
     
     # Use PPW estimate to choose number of gridpoints
     lam = 2*pi/omega
@@ -120,29 +151,6 @@ function run_example(omega, ep_tol, explicit = true, deflate = false, nev = 5)
     force = zeros(DP.N)
     force .= DP.force
 
-#=
-    for i = 1:nev
-        pl = contour(DP.x_grid,DP.y_grid,transpose(reshape(decomp.Q[:,i],DP.Nx,DP.Ny)),
-                     aspect_ratio = 1.0)
-        display(pl)
-        xi = decomp.Q[:,i]
-        z = ALM_WHI*xi
-        w = Lap*xi
-        println(dot(xi,z)/dot(xi,xi)," : ",sqrt(-dot(xi,w)/dot(xi,xi)))
-    end
-    show(history)
-    println(" ")
-    svtol = 1e-12
-    for i = 1:nev
-        Xi = transpose(reshape(decomp.Q[:,i],DP.Nx,DP.Ny))
-        F = svd(Xi)
-        energy = reverse(cumsum(reverse(F.S.^2)))
-        r = findall(energy .> (svtol)^2)
-        r = r[end]
-        println(i," : ",r)
-    end
-=#
-    
     if explicit
         S_whi_ex!(y,x) = S_WHI_operator_hom!(y,x,DP)
         ALM_WHI = LinearMap(S_whi_ex!,DP.N,DP.N,issymmetric = true,ismutating=true,isposdef=true)
@@ -159,40 +167,29 @@ function run_example(omega, ep_tol, explicit = true, deflate = false, nev = 5)
     else
         WHI_operator_i!(b,uin,DP) 
     end
-    ucg, log1 = cg(ALM_WHI,b,log=true,reltol=1e-12,
-                   verbose=false,
+    ucg, log1 = cg(ALM_WHI,b,log=true,reltol=cgtol,
+                   verbose=true,
                    maxiter=DP.N)
-
     
-#    F = eigen(Matrix(Lap))
-#    println(F.values[end-6*nev:end])
-    if deflate
-        if explicit
-            A_whi_ex!(y,x) = WHI_operator_hom!(y,x,DP)
-            ALM = LinearMap(A_whi_ex!,DP.N,DP.N,issymmetric = true,ismutating=true,isposdef=false)
-        else
-            A_whi_im!(y,x) = WHI_operator_homi!(y,x,DP)
-            ALM = LinearMap(A_whi_im!,DP.N,DP.N,issymmetric = true,ismutating=true,isposdef=false)
-        end
-        evtol = 1e-12
-        decomp, history = partialschur(ALM, nev=nev, tol=evtol, which=:LR)
-
-        println(history)
-        # deflate force
-        for i = 1:nev
-            DP.force .-= dot(force,decomp.Q[:,i])*decomp.Q[:,i]
-#=
-            xi = decomp.Q[:,i]
-            eta = F.vectors[:,end-(i-1)]
-            z = ALM*xi
-            w = Lap*xi
-            lam = sqrt(-dot(xi,w))/dot(xi,xi)
-            lam2 = sqrt(-dot(Lap*eta,eta)/dot(eta,eta))
-            println(lam,"  ",lam2,"  ",lam^2," ", lam2.^2," ",bfun(lam,DP)," ",bfun2(lam,DP)," ",dot(xi,z)/dot(xi,xi))
-=#
-        end
+    if explicit
+        A_whi_ex!(y,x) = WHI_operator_hom!(y,x,DP)
+        ALM = LinearMap(A_whi_ex!,DP.N,DP.N,issymmetric = true,ismutating=true,isposdef=false)
+    else
+        A_whi_im!(y,x) = WHI_operator_homi!(y,x,DP)
+        ALM = LinearMap(A_whi_im!,DP.N,DP.N,issymmetric = true,ismutating=true,isposdef=false)
     end
-    
+    decomp = load(fname,"decomp")
+    # deflate force
+    lamd = zeros(nev)
+    betd = zeros(nev)
+    for i = 1:nev
+        DP.force .-= dot(force,decomp.Q[:,i])*decomp.Q[:,i]
+        xi = decomp.Q[:,i]
+        w = Lap*xi
+        lam = sqrt(-dot(xi,w))/dot(xi,xi)
+        lamd[i] = lam
+        betd[i] = bfun2(lam,DP)
+    end
 
     b = zeros(DP.N)
     udefcg = zeros(DP.N)
@@ -202,23 +199,88 @@ function run_example(omega, ep_tol, explicit = true, deflate = false, nev = 5)
     else
         WHI_operator_i!(b,uin,DP) 
     end
-    udefcg, log2 = cg(ALM_WHI,b,log=true,reltol=1e-12,
-                      verbose=false,
+    udefcg, log2 = cg(ALM_WHI,b,log=true,reltol=cgtol,
+                      verbose=true,
                       maxiter=DP.N)
-
     for i = 1:nev
         xi = decomp.Q[:,i]
         w = Lap*xi
         lam2 = -dot(xi,w)/dot(xi,xi)
-        
         udefcg .+= dot(force,decomp.Q[:,i])/(omega^2-lam2)*decomp.Q[:,i]
     end
     pl1 = contour(DP.x_grid,DP.y_grid,transpose(reshape(ucg,DP.Nx,DP.Ny)),
                   aspect_ratio = 1.0)
     pl2 = contour(DP.x_grid,DP.y_grid,transpose(reshape(udefcg,DP.Nx,DP.Ny)),
                   aspect_ratio = 1.0)
-    return pl1,pl2,log1,log2
+    println("Difference = ",norm(ucg-udefcg)/norm(udefcg))
+    
+    return pl1,pl2,log1,log2,DP.x_grid,DP.y_grid,reshape(ucg,DP.Nx,DP.Ny),reshape(udefcg,DP.Nx,DP.Ny)
 end
+
+function process_deflation_from_file(fname,omega,ep_tol,explicit = true,nev = 5, svd_tol=1e-12)
+    
+    # Use PPW estimate to choose number of gridpoints
+    lam = 2*pi/omega
+    Nlam = 2.0/lam
+    PPW = pi*(Nlam/ep_tol)^(1/2)
+    Nx = Int(ceil(Nlam*PPW))
+    Ny = Nx
+    N = Nx*Ny
+    
+    x_grid,y_grid,dx,dy = construct_grid(0.0,pi,0.0,pi,Nx,Ny)
+    x_interior = x_grid[2:Nx+1];
+    y_interior = y_grid[2:Ny+1];
+    Lap = spatial_discretization(x_interior,y_interior,dx,dy,Nx,Ny,N)
+
+    if explicit
+        DP = DeflatedWaveHoltz.DirichletProb2D(omega,x_interior,y_interior,Lap,ep_tol)
+    else
+        DP = DeflatedWaveHoltz.DirichletProb2Di(omega,x_interior,y_interior,Lap,ep_tol)
+    end
+    if explicit
+        S_whi_ex!(y,x) = S_WHI_operator_hom!(y,x,DP)
+        ALM_WHI = LinearMap(S_whi_ex!,DP.N,DP.N,issymmetric = true,ismutating=true,isposdef=true)
+    else
+        S_whi_im!(y,x) = S_WHI_operator_homi!(y,x,DP)
+        ALM_WHI = LinearMap(S_whi_im!,DP.N,DP.N,issymmetric = true,ismutating=true,isposdef=true)
+    end
+    if explicit
+        A_whi_ex!(y,x) = WHI_operator_hom!(y,x,DP)
+        ALM = LinearMap(A_whi_ex!,DP.N,DP.N,issymmetric = true,ismutating=true,isposdef=false)
+    else
+        A_whi_im!(y,x) = WHI_operator_homi!(y,x,DP)
+        ALM = LinearMap(A_whi_im!,DP.N,DP.N,issymmetric = true,ismutating=true,isposdef=false)
+    end
+    decomp = load(fname,"decomp")
+
+    # 
+    lamd = zeros(nev)
+    betd = zeros(nev)
+    for i = 1:nev
+        xi = decomp.Q[:,i]
+        w = Lap*xi
+        lam = sqrt(-dot(xi,w))/dot(xi,xi)
+        lamd[i] = lam
+        betd[i] = bfun2(lam,DP)
+    end
+
+    lam_plot = collect(LinRange(0,5*omega,1000))
+    bet_plot = zeros(1000)
+    for i = 1:1000
+        bet_plot[i] = bfun2(lam_plot[i],DP)
+    end
+    rank_evec = zeros(Int64,nev)
+    for i = 1:nev
+        Xi = reshape(decomp.Q[:,i],DP.Nx,DP.Ny)
+        F = svd(Xi)
+        energy = reverse(cumsum(reverse(F.S.^2)))
+        r = findall(energy .> (svd_tol)^2)
+        r = r[end]
+        rank_evec[i] = r
+    end
+    return lamd,betd,lam_plot,bet_plot,rank_evec,DP.Nx,DP.Ny
+end
+
 
 function bfun(lam,DP)
     dt = DP.dt
@@ -261,3 +323,25 @@ function bfun2(lam,DP)
     uproj = (2.0*dt/T)*(uproj-0.5*(cos(omega*T)-a0)*u)
     return uproj
 end
+
+fname = "om30_nev100.jld2"
+omega = 30.0
+nev = 100
+ep_tol = 1e-3
+explicit = false
+ev_tol = 1e-12
+svd_tol=1e-12
+cgtol = 1e-12
+
+history = find_deflate(omega, ep_tol, explicit, nev, ev_tol, fname)
+lamd,betd,lam_plot,bet_plot,rank_evec,Nx,Ny = process_deflation_from_file(fname,omega,ep_tol,explicit,nev,svd_tol)
+
+default(titlefont = (20, "times"), legendfontsize = 12, tickfont = 12, guidefont=14)
+pl0 = plot(lam_plot,bet_plot,lw=2,label=L"\beta_{\rm d}(\lambda)",xlabel=L"\lambda")
+plot!(pl0,lamd,betd,marker = :circle, seriestype=:scatter, label=L"\beta_{\rm d}(\lambda_k)",ylims=(-0.6,1.1),yticks = -0.5:0.25:1.0)
+savefig(pl0,string(chopsuffix(fname, ".jld2"),".pdf"))
+
+pl1,pl2,log1,log2,x,y,ucg,udfcg = run_example_from_file(omega,ep_tol,explicit,nev,cgtol,fname)
+
+pl3 = plot(log1.data[:resnorm],lw=2,label=L"\textrm{CG}",xlabel="Iteration",yscale=:log10)
+plot!(pl3,log2.data[:resnorm],lw=2,label=L"\textrm{CG \, on } \, f_d")
