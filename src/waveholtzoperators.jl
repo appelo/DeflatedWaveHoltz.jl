@@ -1,193 +1,10 @@
-function compute_a0(DP::Prob2D)
-    a0 = 0.25-0.25*(tan(pi*DP.Np/DP.Nt))^2
-    return a0
-end
-
-#######################################################################
-# Apply the WaveHoltz Operator one time
-#######################################################################
-function WHI_operator!(uproj::Array{Float64},uin::Array{Float64},DP::Prob2D)
-
-    # Use the arrays allocated in the problem struct
-    u = DP.u
-    um = DP.um
-    up = DP.up
-    force = DP.force
-    omega = DP.omega
-    dt = DP.dt
-    nt = DP.Nt
-    A = DP.Lap
-    T = DP.Tp
-    
-    # Fix up the timestep to be exact at omega
-    dt2 = (2*sin(dt*omega/2)/omega)^2
-    a0 = compute_a0(DP)
-    
-    # Start from the inital data provided as input
-    u .= uin
-    
-    # Initialize to have zero velocity  
-    um .= uin
-    mul!(um,A,u,0.5*dt2,1.0)
-    um .= um .- (0.5*dt2).*force
-    # Integration in the fist step
-    tt = 0.0
-    uproj .= (1.0*(cos(omega*tt)-a0)).*u
-    # Loop over time
-    for it = 1:nt-1
-        up .= 2.0.*u
-        mul!(up,A,u,dt2,1.0)
-        up .= up .- (cos(omega*(it-1)*dt)*dt2).*force
-        up .-= um
-        # Swap
-        um .= u
-        u .= up
-        tt = it*dt
-        uproj .+= (cos(omega*(tt))-a0).*u
-    end
-    # Normalize the integral
-    uproj .= (2.0*dt/T).*uproj
-end
-
-#######################################################################
-# Apply the WaveHoltz Operator with no forcing one time
-#######################################################################
-function WHI_operator_hom!(uproj,uin,DP::Prob2D)
-
-    # Use the arrays allocated in the problem struct
-    u = DP.u
-    um = DP.um
-    up = DP.up
-    omega = DP.omega
-    dt = DP.dt
-    nt = DP.Nt
-    A = DP.Lap
-    T = DP.Tp
-    
-    # Fix up the timestep to be exact at omega
-    dt2 = (2*sin(dt*omega/2)/omega)^2
-    a0 = compute_a0(DP)
-    
-    # Start from the inital data provided as input
-    u .= uin
-    
-    # Initialize to have zero velocity  
-    um .= uin
-    mul!(um,A,u,0.5*dt2,1.0)
-    # Integration in the fist step
-    tt = 0.0
-    uproj .= (1.0*(cos(omega*tt)-a0)).*u
-    # Loop over time
-    for it = 1:nt-1
-        up .= 2.0.*u
-        mul!(up,A,u,dt2,1.0)
-        up .-= um
-        # Swap
-        um .= u
-        u .= up
-        tt = it*dt
-        uproj .+= (cos(omega*(tt))-a0).*u
-    end
-    # Normalize the integral
-    uproj .= (2.0*dt/T).*uproj
-end
-
-function S_WHI_operator_hom!(uproj,uin,DP::Prob2D)
-
-    # I - Pi
-    
-    # Use the arrays allocated in the problem struct
-    u = DP.u
-    um = DP.um
-    up = DP.up
-    omega = DP.omega
-    dt = DP.dt
-    nt = DP.Nt
-    A = DP.Lap
-    T = DP.Tp
-    
-    # Fix up the timestep to be exact at omega
-    dt2 = (2*sin(dt*omega/2)/omega)^2
-    a0 = compute_a0(DP)
-    
-    # Start from the inital data provided as input
-    u .= uin
-    
-    # Initialize to have zero velocity  
-    um .= uin
-    mul!(um,A,u,0.5*dt2,1.0)
-    # Integration in the fist step
-    tt = 0.0
-    uproj .= (1.0*(cos(omega*tt)-a0)).*u
-    # Loop over time
-    for it = 1:nt-1
-        up .= 2.0.*u
-        mul!(up,A,u,dt2,1.0)
-        up .-= um
-        # Swap
-        um .= u
-        u .= up
-        tt = it*dt
-        uproj .+= (cos(omega*(tt))-a0).*u
-    end
-    # Normalize the integral and subtract from uin
-    uproj .= uin - (2.0*dt/T).*uproj
-end
-
-
+include("waveholtzoperators_exp.jl")
 
 #######################################################################
 # Apply the WaveHoltz Operator one time
 #######################################################################
 function WHI_operator_i!(uproj,uin,DP::Prob2D)
-
     
-    #= Appelo, Garcia, Rotem, Runborg way
-    # Use the arrays allocated in the problem struct
-    u = DP.u
-    um = DP.um
-    up = DP.up
-    force = DP.force
-    rhside = DP.rhside
-    dt = DP.dt
-    dt2 = dt*dt
-    nt = DP.Nt
-    A = DP.Lap
-    T = DP.Tp
-    omega = DP.omega
-    alpha = cos(omega*dt)*(2.0+(omega*dt)^2)
-    cos_omega_dt = cos(omega*dt)
-    # Fix up the timestep to be exact at omega
-    a0 = compute_a0(DP)
-    # Start from the inital data provided as input
-    u .= uin
-    # Initialize to have zero velocity  
-    up .= 0.5*alpha*u - 0.5*dt2*force*cos_omega_dt
-    um, log1 = cg(DP.G,up,Pl=DP.precond,
-                  log=true,reltol=1e-12,verbose=false,
-                  maxiter=100)
-
-    # Integration in the fist step
-    tt = 0.0
-    uproj .= 0.5*(cos(omega*tt)-a0).*u
-    # Loop over time
-    for it = 1:nt
-        rhside .= alpha*u .- dt2*force*cos(omega*tt)*cos_omega_dt
-        up, log1 = cg(DP.G,rhside,Pl=DP.precond,
-                      log=true,reltol=1e-12,verbose=false,
-                      maxiter=100)
-        up .-= um
-        # Swap
-        um .= u
-        u .= up
-        tt = it*dt
-        uproj .+= (cos(omega*(tt))-a0).*u
-    end
-    # Normalize the integral
-    uproj .= (2.0*dt/T).*(uproj-0.5*(cos(omega*(tt))-a0).*u)
-    
-    =#
- 
     # Use the arrays allocated in the problem struct
     u = DP.u
     um = DP.um
@@ -207,10 +24,10 @@ function WHI_operator_i!(uproj,uin,DP::Prob2D)
 
     # Start from the inital data provided as input
     u .= uin
-    # Initialize to have zero velocity  
-    up .= 2.0*u - dt2*force*cos_omega_dt
+    # Initialize to have zero velocity
+    up .= (2.0*u - dt2*force*cos_omega_dt)
     um, log1 = cg(DP.G,up,Pl=DP.precond,
-                  log=true,reltol=1e-12,verbose=false,
+                  log=true,reltol=1e-14,verbose=false,
                   maxiter=100)
     um .*= 0.5
 
@@ -219,9 +36,9 @@ function WHI_operator_i!(uproj,uin,DP::Prob2D)
     uproj .= (0.5*(cos(omega*tt)-a0)).*u
     # Loop over time
     for it = 1:nt
-        rhside .= 2.0*u .- dt2*force*cos(omega*tt)*cos_omega_dt
+        rhside .= (2.0*u .- dt2*force*cos(omega*tt)*cos_omega_dt)
         up, log1 = cg(DP.G,rhside,Pl=DP.precond,
-                      log=true,reltol=1e-12,verbose=false,
+                      log=true,reltol=1e-14,verbose=false,
                       maxiter=100)
         up .-= um
         # Swap
@@ -232,14 +49,14 @@ function WHI_operator_i!(uproj,uin,DP::Prob2D)
     end
     # Normalize the integral
     uproj .= (2.0*dt/T).*(uproj-0.5*(cos(omega*T)-a0).*u)
-
 end
+
 
 #######################################################################
 # Apply the WaveHoltz Operator with no forcing one time
 #######################################################################
 function WHI_operator_homi!(uproj,uin,DP::Prob2D)
-    
+
     # Use the arrays allocated in the problem struct
     u = DP.u
     um = DP.um
@@ -258,11 +75,13 @@ function WHI_operator_homi!(uproj,uin,DP::Prob2D)
 
     # Start from the inital data provided as input
     u .= uin
-    # Initialize to have zero velocity  
+    # Initialize to have zero velocity
     up .= 2.0*u
     um, log1 = cg(DP.G,up,Pl=DP.precond,
-                  log=true,reltol=1e-12,verbose=false,
+                  log=true,reltol=1e-14,verbose=false,
                   maxiter=100)
+    DP.mg_iters[1] += 1
+    DP.mg_iters[2] += log1.iters
     um .*= 0.5
 
     # Integration in the fist step
@@ -272,8 +91,10 @@ function WHI_operator_homi!(uproj,uin,DP::Prob2D)
     for it = 1:nt
         rhside .= 2.0*u
         up, log1 = cg(DP.G,rhside,Pl=DP.precond,
-                      log=true,reltol=1e-12,verbose=false,
+                      log=true,reltol=1e-14,verbose=false,
                       maxiter=100)
+        DP.mg_iters[1] += 1
+        DP.mg_iters[2] += log1.iters
         up .-= um
         # Swap
         um .= u
@@ -283,12 +104,14 @@ function WHI_operator_homi!(uproj,uin,DP::Prob2D)
     end
     # Normalize the integral
     uproj .= (2.0*dt/T).*(uproj-0.5*(cos(omega*T)-a0).*u)
-    
+end
+
+function WHI_operator_homi_eig!(uproj,uin,DP::Prob2D)
+    WHI_operator_homi!(uproj,uin,DP)
 end
 
 function S_WHI_operator_homi!(uproj,uin,DP::Prob2D)
     # I - Pi
-
     # Use the arrays allocated in the problem struct
     u = DP.u
     um = DP.um
@@ -307,12 +130,14 @@ function S_WHI_operator_homi!(uproj,uin,DP::Prob2D)
 
     # Start from the inital data provided as input
     u .= uin
-    # Initialize to have zero velocity  
+    # Initialize to have zero velocity
     up .= 2.0*u
     um, log1 = cg(DP.G,up,Pl=DP.precond,
-                  log=true,reltol=1e-12,verbose=false,
-                  maxiter=100)
+                  log=true,reltol=1e-14,verbose=false,
+                  maxiter=1000)
     um .*= 0.5
+    DP.mg_iters[1] += 1
+    DP.mg_iters[2] += log1.iters
 
     # Integration in the fist step
     tt = 0.0
@@ -320,9 +145,12 @@ function S_WHI_operator_homi!(uproj,uin,DP::Prob2D)
     # Loop over time
     for it = 1:nt
         rhside .= 2.0*u
+
         up, log1 = cg(DP.G,rhside,Pl=DP.precond,
-                      log=true,reltol=1e-12,verbose=false,
-                      maxiter=100)
+                      log=true,reltol=1e-14,verbose=false,
+                      maxiter=1000)
+        DP.mg_iters[1] += 1
+        DP.mg_iters[2] += log1.iters
         up .-= um
         # Swap
         um .= u
@@ -332,5 +160,4 @@ function S_WHI_operator_homi!(uproj,uin,DP::Prob2D)
     end
     # Normalize the integral
     uproj .= uin - (2.0*dt/T).*(uproj-0.5*(cos(omega*T)-a0).*u)
-    
 end
