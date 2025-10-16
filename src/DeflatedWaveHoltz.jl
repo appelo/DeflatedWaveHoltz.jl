@@ -15,8 +15,9 @@ include("forcing.jl")
 export set_gauss_forcing!
 
 include("waveholtzoperators.jl")
-export compute_a0, WHI_operator!, WHI_operator_hom!, WHI_operator_i!, WHI_operator_homi!,WHI_operator_homi_eig! 
-export S_WHI_operator_hom!, S_WHI_operator_homi!
+export compute_a0, WHI_operator!, WHI_operator_hom!
+export WHI_operator_i!, WHI_operator_homi!, WHI_sym_operator_i!, WHI_sym_operator_homi!
+export S_WHI_operator_hom!, S_WHI_operator_homi!, S_WHI_sym_operator_homi!
 include("deflationfunctions.jl")
 export epair_1d_laplace, bfunex
 

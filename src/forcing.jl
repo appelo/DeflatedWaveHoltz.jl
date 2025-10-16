@@ -1,6 +1,5 @@
 
 function set_gauss_forcing!(P2D::Prob2D,x0::Float64,y0::Float64)
-    
     Nx = P2D.Nx
     Ny = P2D.Ny
     force  = P2D.force
@@ -14,5 +13,4 @@ function set_gauss_forcing!(P2D::Prob2D,x0::Float64,y0::Float64)
                     (x_grid[i]-x0)^2+(y_grid[j]-y0)^2))
         end
     end
-    P2D.force .= P2D.Mass*force
 end

@@ -162,10 +162,9 @@ function DirichletProb2Di(
     Jinv = reshape(1.0 ./ Jac[2:end-1,2:end-1],Nq*Nr)
     Lap = spdiagm(Jinv)*(Lap1 .+ Lap2 .+ Lap3)
     Mass = spdiagm(reshape(Jac[2:end-1,2:end-1],Nq*Nr))*M
-    println("Symmetric? = ",norm(Mass*Lap - (Mass*Lap)'))
     
     # Time stepping
-    Nt = 5 
+    Nt = 10 
     
     dt = sqrt(2.0/cos(2*pi/Nt)-2.0)/omega
     omega = 2.0*pi/Nt/dt
@@ -183,8 +182,7 @@ function DirichletProb2Di(
     hq = q_grid[2]-q_grid[1]
     hr = r_grid[2]-r_grid[1]
     Mass .= Mass / (hq*hr)
-    Lap .= Mass*Lap
-    G = (IN - 0.5*dt^2*Lap)
+    G = Mass*(IN - 0.5*dt^2*Lap)
     ml = ruge_stuben(G,strength = Classical(0.9),
                      presmoother = GaussSeidel(),
                      postsmoother = GaussSeidel(),
