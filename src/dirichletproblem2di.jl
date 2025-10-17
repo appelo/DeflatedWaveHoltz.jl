@@ -10,6 +10,8 @@ mutable struct DirichletProb2Di{T1,T2}
     dt::Float64
     Lap::SparseMatrixCSC{Float64, Int64}
     Mass::SparseMatrixCSC{Float64, Int64}
+    M12::SparseMatrixCSC{Float64, Int64}
+    MINV12::SparseMatrixCSC{Float64, Int64}
     G       ::SparseMatrixCSC{Float64, Int64}
     ml      ::T1
     precond ::T2
@@ -182,7 +184,9 @@ function DirichletProb2Di(
     hq = q_grid[2]-q_grid[1]
     hr = r_grid[2]-r_grid[1]
     Mass .= Mass / (hq*hr)
-    G = Mass*(IN - 0.5*dt^2*Lap)
+    M12 = spdiagm(sqrt.(diag(Mass)))
+    MINV12 = spdiagm(1.0 ./ (sqrt.(diag(Mass))))
+    G = (IN - 0.5*dt^2*M12*Lap*MINV12)
     ml = ruge_stuben(G,strength = Classical(0.9),
                      presmoother = GaussSeidel(),
                      postsmoother = GaussSeidel(),
@@ -192,7 +196,8 @@ function DirichletProb2Di(
     precond = aspreconditioner(ml)
     mg_iters = zeros(Int64,2)
     DirichletProb2Di(omega,Nq,Nr,Nt,N,hq,hr,dt,
-                     Lap,Mass,G,ml,precond,rhside,Np,Tp,T,um,u,up,
+                     Lap,Mass,M12,MINV12,
+                     G,ml,precond,rhside,Np,Tp,T,um,u,up,
                      force,q_grid,r_grid,order,mg_iters)
     
 end
