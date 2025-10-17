@@ -6,16 +6,16 @@ using Meshes
 include("../src/vc_helpers.jl")
 
 
-fname = "om50_nev50.jld2"
-omega = 50.0
-nev = 50
-ep_tol = 1e-3
+fname = "om10_nev20.jld2"
+omega = 10.0
+nev = 20
+ep_tol = 1e-4
 explicit = false
 ev_tol = 1e-14
 svd_tol=1e-12
-cgtol = 1e-6
+cgtol = 1e-10
 
-order = 6
+order = 4
 
 qmin = -1.0
 rmin = -1.0
@@ -29,8 +29,8 @@ if 1==1
     history,DP = find_deflate(omega,xmap,ymap,qmin,qmax,rmin,rmax,order,ep_tol,explicit,nev,ev_tol,fname)
 end
 
-if(1==2)
-    rank_arr, eig_svd_arr = process_deflation_from_file(fname,svd_tol)
+if(1==1)
+    rank_arr, eig_svd_arr,lamd,betd,lam_plot,bet_plot = process_deflation_from_file(fname,DP,svd_tol)
 end
 
 if(1==1)
@@ -42,7 +42,7 @@ if(1==1)
 
     udcg, res_udcg = compute_DCG_from_file(fname,omega,xmap,ymap,qmin,qmax,rmin,rmax,order,ep_tol,explicit,nev,cgtol)
 
-    println("ERROR GMRES on deflated : ",norm(uHH - reshape(udfcg,DP.N)))
+    println("ERROR CG on deflated : ",norm(uHH - reshape(udfcg,DP.N)))
     println("ERROR CG : ",norm(uHH - reshape(ucg,DP.N)))
     println("ERROR WHI on deflated: ",norm(uHH - reshape(uwhi,DP.N)))
     println("ERROR = DCG : ",norm(uHH - udcg))    
@@ -51,14 +51,6 @@ if(1==1)
     set_theme!(Theme(fontsize = 20,
                      Axis = (titlefontsize = 20, xlabelsize = 20, ylabelsize = 20),
                      Legend = (fontsize = 20,)))
-
-    lamd,betd,lam_plot,bet_plot,rank_evec,Nq,Nr = process_deflation_from_file(fname,
-                                                                              omega,xmap,ymap,
-                                                                              qmin,qmax,rmin,rmax,
-                                                                              order,ep_tol,
-                                                                              explicit,nev,svd_tol)
-
-
     # Beta function
     fig0 = Figure()
     ax0 = Axis(fig0[1, 1],
@@ -125,7 +117,7 @@ if(1==1)
          xlabel = latexstring("\$x\$-axis"),
          ylabel = latexstring("\$y\$-axis"),
          aspect = DataAspect())
-    cplot = CairoMakie.contourf!(fig2[1,1], X,Y,reshape(udcg,Nq,Nr),colormap = :hsv,levels = 20)
+    cplot = CairoMakie.contourf!(fig2[1,1], X,Y,reshape(udcg,Nq,Nr),colormap = :hsv,levels = 40)
     Colorbar(fig2[1, 2], cplot)
     save(string("solution_",chopsuffix(fname, ".jld2"),".pdf"),fig2)
 

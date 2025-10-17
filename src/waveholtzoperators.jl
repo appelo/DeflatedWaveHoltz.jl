@@ -25,7 +25,7 @@ function WHI_operator_i!(uproj,uin,DP::Prob2D)
     # Start from the inital data provided as input
     u .= uin
     # Initialize to have zero velocity
-    up .= DP.Mass*(2.0*u - dt2*force*cos_omega_dt)
+    up .= (2.0*u - dt2*force*cos_omega_dt)
     um, log1 = cg(DP.G,up,Pl=DP.precond,
                   log=true,reltol=1e-14,verbose=false,
                   maxiter=100)
@@ -36,7 +36,7 @@ function WHI_operator_i!(uproj,uin,DP::Prob2D)
     uproj .= (0.5*(cos(omega*tt)-a0)).*u
     # Loop over time
     for it = 1:nt
-        rhside .= DP.Mass*(2.0*u .- dt2*force*cos(omega*tt)*cos_omega_dt)
+        rhside .= (2.0*u .- dt2*force*cos(omega*tt)*cos_omega_dt)
         up, log1 = cg(DP.G,rhside,Pl=DP.precond,
                       log=true,reltol=1e-14,verbose=false,
                       maxiter=100)
@@ -50,12 +50,6 @@ function WHI_operator_i!(uproj,uin,DP::Prob2D)
     # Normalize the integral
     uproj .= (2.0*dt/T).*(uproj-0.5*(cos(omega*T)-a0).*u)
 end
-
-function WHI_sym_operator_i!(uproj,uin,DP::Prob2D)
-    WHI_operator_i!(uproj,uin,DP)
-    uproj .= DP.Mass*uproj
-end
-
 
 
 #######################################################################
@@ -82,7 +76,7 @@ function WHI_operator_homi!(uproj,uin,DP::Prob2D)
     # Start from the inital data provided as input
     u .= uin
     # Initialize to have zero velocity
-    up .= 2.0*DP.Mass*u
+    up .= 2.0*u
     um, log1 = cg(DP.G,up,Pl=DP.precond,
                   log=true,reltol=1e-14,verbose=false,
                   maxiter=100)
@@ -95,7 +89,7 @@ function WHI_operator_homi!(uproj,uin,DP::Prob2D)
     uproj .= (0.5*(cos(omega*tt)-a0)).*u
     # Loop over time
     for it = 1:nt
-        rhside .= 2.0*DP.Mass*u
+        rhside .= 2.0*u
         up, log1 = cg(DP.G,rhside,Pl=DP.precond,
                       log=true,reltol=1e-14,verbose=false,
                       maxiter=100)
@@ -126,6 +120,12 @@ end
 function S_WHI_sym_operator_homi!(uproj,uin,DP::Prob2D)
     WHI_operator_homi!(uproj,uin,DP)
     uproj .= uin - uproj
+    uproj .= DP.Mass*uproj
+end
+
+
+function WHI_sym_operator_i!(uproj,uin,DP::Prob2D)
+    WHI_operator_i!(uproj,uin,DP)
     uproj .= DP.Mass*uproj
 end
 
