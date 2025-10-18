@@ -13,7 +13,7 @@ function WHI_operator_i!(uproj,uin,DP::Prob2D)
     rhside = DP.rhside
     dt = DP.dt
     dt2 = dt*dt
-    nt = DP.Nt
+    nt = DP.Nt*DP.Np
     A = DP.Lap
     T = DP.Tp
 
@@ -64,7 +64,7 @@ function WHI_operator_homi!(uproj,uin,DP::Prob2D)
     rhside = DP.rhside
     dt = DP.dt
     dt2 = dt*dt
-    nt = DP.Nt
+    nt = DP.Nt*DP.Np
     A = DP.Lap
     T = DP.Tp
 

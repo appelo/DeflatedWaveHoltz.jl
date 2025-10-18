@@ -5,11 +5,10 @@ using Meshes
 
 include("../src/vc_helpers.jl")
 
-
-fname = "om10_nev20.jld2"
-omega = 10.0
-nev = 20
-ep_tol = 1e-4
+fname = "om50_nev50.jld2"
+omega = 50.0
+nev = 50
+ep_tol = 1e-3
 explicit = false
 ev_tol = 1e-14
 svd_tol=1e-12
@@ -24,6 +23,8 @@ rmax =  1.0
 
 xmap(q,r) = q + 0.1*sin(2*r)
 ymap(q,r) = r - 0.3*sin(2*q)
+
+@time DP = DeflatedWaveHoltz.DirichletProb2Di(omega,xmap,ymap,qmin,qmax,rmin,rmax,order,ep_tol)
 
 if 1==1
     history,DP = find_deflate(omega,xmap,ymap,qmin,qmax,rmin,rmax,order,ep_tol,explicit,nev,ev_tol,fname)
@@ -84,7 +85,7 @@ if(1==1)
     line1 = lines!(ax1, log_2.data[:resnorm], color = :blue,
                    linestyle = :dash,
                    linewidth = 3,
-                   label = latexstring("GMRES with \$f_{d}\$"))
+                   label = latexstring("CG with \$f_{d}\$"))
 
     line1 = lines!(ax1, res_whi, color = :red,
                    linewidth = 3,

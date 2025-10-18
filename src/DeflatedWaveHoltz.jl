@@ -1,6 +1,6 @@
 module DeflatedWaveHoltz
 
-using LinearAlgebra, SparseArrays, SummationByPartsOperators, IterativeSolvers, AlgebraicMultigrid,Meshes
+using LinearAlgebra, SparseArrays, SummationByPartsOperators, IterativeSolvers, AlgebraicMultigrid, Meshes, TimerOutputs, InvertedIndices
 
 include("dirichletproblem2d.jl")
 export DirichletProb2D 

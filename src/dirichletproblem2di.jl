@@ -39,7 +39,7 @@ function DirichletProb2Di(
     rmax::Float64,
     order::Int64,
     ep_tol::Float64;
-    Np::Int64 = 1)
+    Np::Int64 = 5)
     
     # Use PPW estimate to choose number of gridpoints
     lam = 2*pi/omega
@@ -49,21 +49,24 @@ function DirichletProb2Di(
     Nlam = (rmax-rmin)/lam
     PPW = pi*(Nlam/ep_tol)^(1/order)
     Nr = Int(ceil(Nlam*PPW))
+    println("Number of gridpoints = ",Nq," ",Nr)
+
+    to = TimerOutput()
     
-    D1Q = derivative_operator(MattssonNordström2004(),
-                                  1,order,qmin,qmax,Nq+2)
+    @timeit to "Initiation" D1Q = derivative_operator(MattssonNordström2004(),
+                                                      1,order,qmin,qmax,Nq+2)
     
-    q_grid = collect(SummationByPartsOperators.grid(D1Q))
+    @timeit to "Initiation" q_grid = collect(SummationByPartsOperators.grid(D1Q))
     
-    D1R = derivative_operator(MattssonNordström2004(),
-                              1,order,rmin,rmax,Nr+2)
+    @timeit to "Initiation"  D1R = derivative_operator(MattssonNordström2004(),
+                                                       1,order,rmin,rmax,Nr+2)
     
-    r_grid = collect(SummationByPartsOperators.grid(D1R))
+    @timeit to "Initiation" r_grid = collect(SummationByPartsOperators.grid(D1R))
     
     X = zeros(Nq+2,Nr+2)
     Y = zeros(Nq+2,Nr+2)
     
-    for j = 1:Nr+2
+    @timeit to "Compute grid" for j = 1:Nr+2
         for i = 1:Nq+2
             X[i,j] = Xmap(q_grid[i],r_grid[j])
             Y[i,j] = Ymap(q_grid[i],r_grid[j])
@@ -81,50 +84,61 @@ function DirichletProb2Di(
     Qy = zeros(Nq+2,Nr+2)
     Ry = zeros(Nq+2,Nr+2)
     
-    for j = 1:Nr+2
+    @timeit to "Compute metric" for j = 1:Nr+2
         Xq[:,j] .= D1Q*X[:,j]
         Yq[:,j] .= D1Q*Y[:,j]     
     end
-    for i = 1:Nq+2
+    @timeit to "Compute metric" for i = 1:Nq+2
         Xr[i,:] .= D1R*X[i,:]
         Yr[i,:] .= D1R*Y[i,:]     
     end
-    Jac .= Xq.*Yr .- Xr.*Yq
-    Qx .=  Yr./Jac
-    Rx .= -Yq./Jac
-    Qy .= -Xr./Jac
-    Ry .=  Xq./Jac 
+    @timeit to "Compute metric" Jac .= Xq.*Yr .- Xr.*Yq
+    @timeit to "Compute metric" Qx .=  Yr./Jac
+    @timeit to "Compute metric" Rx .= -Yq./Jac
+    @timeit to "Compute metric" Qy .= -Xr./Jac
+    @timeit to "Compute metric" Ry .=  Xq./Jac 
     
-    Dr = sparse(D1R)
-    Dq = sparse(D1Q)
+    @timeit to "Sparse" Dr = sparse(D1R)
+    @timeit to "Sparse" Dq = sparse(D1Q)
     
     Lap2 = spzeros(Nq*Nr,Nq*Nr)
     Lap3 = spzeros(Nq*Nr,Nq*Nr)
     
-    TMP = spzeros(Nq+2,Nr+2)
-    TMP = Jac.*(Qx.*Rx .+ Qy.*Ry)
-    
-    U = spzeros(Nq+2,Nr+2)
-    W = spzeros(Nq+2,Nr+2)
+    TMP = zeros(Nq+2,Nr+2)
+    TMP .= Jac.*(Qx.*Rx .+ Qy.*Ry)
+    tmp = reshape(TMP,:)
+    DI = spdiagm(tmp)
+    @timeit to "Compute Lap 3 alt 1" Lap3 = kron(Dr,SparseMatrixCSC(I,Nq+2,Nq+2))*DI*kron(SparseMatrixCSC(I,Nr+2,Nr+2),Dq)
+    @timeit to "Compute Lap 2 alt 1" Lap2 = kron(SparseMatrixCSC(I,Nr+2,Nr+2),Dq)*DI*kron(Dr,SparseMatrixCSC(I,Nq+2,Nq+2))
+   
+    not_idx = [];
     idx = 1
-    for j = 2:Nr+1
-        for i = 2:Nq+1
-            U[i,j] = 1.0;
-            W .= Dq*(TMP.*(U*transpose(Dr)))
-            Lap2[:,idx] = reshape(W[2:end-1,2:end-1],:,1)
-            W .= ((Dq*U).*TMP)*transpose(Dr)
-            Lap3[:,idx] = reshape(W[2:end-1,2:end-1],:,1)
-            U[i,j] = 0.0;
+    for j = 1:Nr+2
+        for i = 1:Nq+2
+            if i == 1 || i == Nq+2 || j == 1 || j == Nr+2
+                push!(not_idx,idx)
+            end
             idx = idx+1
         end
     end
+
+    Nidx = collect(1:(Nq+2)*(Nr+2))
+    Nidx = Nidx[Not(not_idx)]
+    @timeit to "Compute Lap 2 alt 2 1" P = spzeros(Float64,Nq*Nr,(Nq+2)*(Nr+2))
+    @timeit to "Compute Lap 2 alt 2 1" for idx = 1:Nq*Nr
+        P[idx,Nidx[idx]] = 1.0
+    end
+    @timeit to "Compute Lap 3 alt 2 3" Lap3 = P*Lap3*transpose(P)
+    @timeit to "Compute Lap 2 alt 2 3" Lap2 = P*Lap2*transpose(P)
+    
     Lap1 = spzeros(Nq*Nr,Nq*Nr)
     E = spzeros(Nr,Nr)
-    TMP = Jac.*(Qx.*Qx .+ Qy.*Qy)
+    TMP .= Jac.*(Qx.*Qx .+ Qy.*Qy)
     idx = 1
-    for j = 2:Nr+1
+    b = zeros(Nq+2)
+    @timeit to "Compute Lap 1" for j = 2:Nr+1
         E[idx,idx] = 1.0
-        b = Vector(TMP[:,j-1])
+        b .= Vector(TMP[:,j-1])
         D2Q = var_coef_derivative_operator(Mattsson2012(),2,order,
                                            qmin,qmax,Nq+2,b)
         Dqq = sparse(D2Q)
@@ -133,13 +147,13 @@ function DirichletProb2Di(
         E[idx,idx] = 0.0
         idx = idx+1
     end
-    
     E = spzeros(Nq,Nq)
-    TMP = Jac.*(Rx.*Rx .+ Ry.*Ry)
+    TMP .= Jac.*(Rx.*Rx .+ Ry.*Ry)
     idx = 1
-    for i = 2:Nq+1
+    b = zeros(Nr+2)
+    @timeit to "Compute Lap 1" for i = 2:Nq+1
         E[idx,idx] = 1.0
-        b = Vector(TMP[i-1,:])
+        b .= Vector(TMP[i-1,:])
         D2R = var_coef_derivative_operator(Mattsson2012(),2,order,
                                            rmin,rmax,Nr+2,b)
         Drr = sparse(D2R)
@@ -166,7 +180,8 @@ function DirichletProb2Di(
     Mass = spdiagm(reshape(Jac[2:end-1,2:end-1],Nq*Nr))*M
     
     # Time stepping
-    Nt = 10 
+
+    Nt = 10*Np 
     
     dt = sqrt(2.0/cos(2*pi/Nt)-2.0)/omega
     omega = 2.0*pi/Nt/dt
@@ -195,6 +210,8 @@ function DirichletProb2Di(
     
     precond = aspreconditioner(ml)
     mg_iters = zeros(Int64,2)
+#    show(to)
+#    println("\n")
     DirichletProb2Di(omega,Nq,Nr,Nt,N,hq,hr,dt,
                      Lap,Mass,M12,MINV12,
                      G,ml,precond,rhside,Np,Tp,T,um,u,up,

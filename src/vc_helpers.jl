@@ -114,7 +114,7 @@ function find_deflate(omega, xmap::Function, ymap::Function,qmin,qmax,rmin,rmax,
 
     println("Number of ev = ",nev)
     DP = DeflatedWaveHoltz.DirichletProb2Di(omega,xmap,ymap,qmin,qmax,rmin,rmax,order,ep_tol)
-    println("Number of gridpoints = ",DP.Nx," ",DP.Ny)
+
     A_whi_im!(y,x) = WHI_operator_homi!(y,x,DP)
     ALM = LinearMap(A_whi_im!,DP.N,DP.N,issymmetric = true, ismutating=true, isposdef=false)
     decomp, history = partialschur(ALM, nev=nev, tol=evtol, which=:LR)
@@ -199,7 +199,7 @@ function compute_DCG_from_file(fname,omega,xmap,ymap,qmin,qmax,rmin,rmax,order,e
     @timeit to "Vec operation" rtr = dot(r,r)
     @timeit to "Vec operation" rtr0 = rtr
 
-    max_iter = 500
+    max_iter = 1000
     history = zeros(max_iter+1)
     history[1] = sqrt(rtr0)
     iter = 1
