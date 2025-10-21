@@ -111,10 +111,10 @@ end
 
 function find_deflate(omega, xmap::Function, ymap::Function,qmin,qmax,rmin,rmax,order,ep_tol,
                       explicit = false, nev = 5,evtol = 1e-12, fname = "d.jld2")
-
+    
     println("Number of ev = ",nev)
     DP = DeflatedWaveHoltz.DirichletProb2Di(omega,xmap,ymap,qmin,qmax,rmin,rmax,order,ep_tol)
-
+    
     A_whi_im!(y,x) = WHI_operator_homi!(y,x,DP)
     ALM = LinearMap(A_whi_im!,DP.N,DP.N,issymmetric = true, ismutating=true, isposdef=false)
     decomp, history = partialschur(ALM, nev=nev, tol=evtol, which=:LR)
@@ -285,7 +285,7 @@ function bfun2(lam,DP)
     up = 0.0
     dt = DP.dt
     dt2 = dt*dt
-    nt = DP.Nt
+    nt = DP.Nt*DP.Np
     A = lam^2
     T = DP.Tp
     omega = DP.omega
