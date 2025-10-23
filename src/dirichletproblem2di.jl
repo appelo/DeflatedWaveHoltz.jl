@@ -137,7 +137,8 @@ function DirichletProb2Di(
         E[idx,idx] = 1.0
         b .= Vector(TMP[:,j-1])
         D2Q = var_coef_derivative_operator(Mattsson2012(),2,order,
-                                           qmin,qmax,Nq+2,b)
+                                           qmin,qmax,Nq+2,abs2)
+        D2Q.b .= b
         Dqq = sparse(D2Q)
         Dqq = Dqq[2:end-1,2:end-1]
         Lap1 .= Lap1 .+ kron(E,Dqq)
@@ -152,7 +153,8 @@ function DirichletProb2Di(
         E[idx,idx] = 1.0
         b .= Vector(TMP[i-1,:])
         D2R = var_coef_derivative_operator(Mattsson2012(),2,order,
-                                           rmin,rmax,Nr+2,b)
+                                           rmin,rmax,Nr+2,abs2)
+        D2R.b .= b
         Drr = sparse(D2R)
         Drr = Drr[2:end-1,2:end-1]
         Lap1 .= Lap1 .+ kron(Drr,E)
@@ -161,13 +163,13 @@ function DirichletProb2Di(
     end
     b = Vector(TMP[:,1])
     D2Q = var_coef_derivative_operator(Mattsson2012(),2,order,
-                                       rmin,rmax,Nq+2,b)
+                                       rmin,rmax,Nq+2,abs2)
     Mq = sparse(mass_matrix(D2Q))
     Mq = Mq[2:end-1,2:end-1]
 
     b = Vector(TMP[1,:])
     D2R = var_coef_derivative_operator(Mattsson2012(),2,order,
-                                       rmin,rmax,Nr+2,b)
+                                       rmin,rmax,Nr+2,abs2)
     Mr = sparse(mass_matrix(D2R))
     Mr = Mr[2:end-1,2:end-1]
     M = kron(Mr,Mq)

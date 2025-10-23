@@ -129,26 +129,7 @@ function run_case(fname,omega,nev)
     end
 end
 
-fname = "om10_nev30.jld2"
-omega = 10.0
-nev = 30
-run_case(fname,omega,nev)
-
-
-#=
 fname = "om10_nev20.jld2"
-omega = 10.0
-nev = 20
+omega = 20.0
+nev = 50
 run_case(fname,omega,nev)
-
-
-fname = "om30_nev20.jld2"
-omega = 30.0
-nev = 20
-run_case(fname,omega,nev)
-
-fname = "om50_nev20.jld2"
-omega = 50.0
-nev = 20
-run_case(fname,omega,nev)
-=#

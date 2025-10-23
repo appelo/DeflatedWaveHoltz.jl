@@ -92,9 +92,9 @@ function run_SVD_case(fname,omega,nev)
 end
 
 
-fname = "om5_nev100.jld2"
+fname = "om5_nev10.jld2"
 omega = 5.0
-nev = 1024
+nev = 10
 run_SVD_case(fname,omega,nev)
 
 
