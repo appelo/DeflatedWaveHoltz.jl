@@ -6,9 +6,6 @@ using Meshes
 include("../src/vc_helpers.jl")
 
 function run_case(fname,omega,nev)
-    #fname = "om20_nev10.jld2"
-    #omega = 20.0
-    #nev = 10
 
     ep_tol = 1e-4
     explicit = false
@@ -26,25 +23,25 @@ function run_case(fname,omega,nev)
     xmap(q,r) = q + 0.1*sin(2*r)
     ymap(q,r) = r - 0.3*sin(2*q)
 
-    @time DP = DeflatedWaveHoltz.DirichletProb2Di(omega,xmap,ymap,qmin,qmax,rmin,rmax,order,ep_tol)
+    @time DP = DeflatedWaveHoltz.DirichletProb2Di(omega,xmap,ymap,qmin,qmax,rmin,rmax,order,ep_tol,Np=3)
 
-    if 1==1
-        history,DP = find_deflate(omega,xmap,ymap,qmin,qmax,rmin,rmax,order,ep_tol,explicit,nev,ev_tol,fname)
+    if 1==2
+        history = find_deflate(DP,fname, nev, ev_tol)
     end
 
     if 1==1
-        rank_arr, eig_svd_arr,lamd,betd,lam_plot,bet_plot = process_deflation_from_file(fname,DP,svd_tol)
+        rank_arr, eig_svd_arr,lamd,betd,lam_plot,bet_plot = process_deflation_from_file(DP,fname,svd_tol)
     end
-
+    
     if 1==1
+        
+        log1,log_2,res_whi,x,y,ucg,udfcg,uwhi = run_example_from_file(DP,fname,nev,cgtol)
 
-        log1,log_2,res_whi,x,y,ucg,udfcg,uwhi = run_example_from_file(omega,xmap,ymap,qmin,qmax,rmin,rmax,order,ep_tol,
-                                                                      explicit,nev,cgtol,fname)
         set_gauss_forcing!(DP,0.1,0.2)
         uHH = (omega^2*1.0I + DP.Lap) \ DP.force
-
-        udcg, res_udcg = compute_DCG_from_file(fname,omega,xmap,ymap,qmin,qmax,rmin,rmax,order,ep_tol,explicit,nev,cgtol)
-
+        
+        udcg, res_udcg = compute_DCG_from_file(DP,fname,nev,cgtol)
+        
         println("ERROR CG on deflated : ",norm(uHH - reshape(udfcg,DP.N)))
         println("ERROR CG : ",norm(uHH - reshape(ucg,DP.N)))
         println("ERROR WHI on deflated: ",norm(uHH - reshape(uwhi,DP.N)))
@@ -129,7 +126,20 @@ function run_case(fname,omega,nev)
     end
 end
 
+
 fname = "om10_nev20.jld2"
+omega = 5.0
+nev = 10
+run_case(fname,omega,nev)
+
+#=
+fname = "om20_nev50.jld2"
 omega = 20.0
 nev = 50
 run_case(fname,omega,nev)
+
+fname = "om40_nev100.jld2"
+omega = 40.0
+nev = 100
+run_case(fname,omega,nev)
+=#

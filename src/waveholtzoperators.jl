@@ -4,6 +4,11 @@ include("waveholtzoperators_exp.jl")
 # Apply the WaveHoltz Operator one time
 #######################################################################
 function WHI_operator_i!(uproj,uin,DP::Prob2D)
+
+    z1 = zeros(DP.N)
+    z2 = zeros(DP.N)
+    z3 = zeros(DP.N)
+    statevars=CGStateVariables(z1,z2,z3)
     
     # Use the arrays allocated in the problem struct
     u = DP.u
@@ -25,10 +30,12 @@ function WHI_operator_i!(uproj,uin,DP::Prob2D)
     # Start from the inital data provided as input
     u .= uin
     # Initialize to have zero velocity
-    up .= (2.0*u - dt2*force*cos_omega_dt)
-    um, log1 = cg(DP.G,up,Pl=DP.precond,
-                  log=true,reltol=1e-14,verbose=false,
-                  maxiter=100)
+    # @timeit to "First step 2" up .= (2.0 .* u .- (dt2*cos_omega_dt) .* force)
+    up .= 2.0 .* u
+    up .-= (dt2*cos_omega_dt) .* force
+    cg!(um,DP.G,up,Pl=DP.precond,
+                  log=false,reltol=1e-14,verbose=false,
+                  maxiter=100,statevars=statevars)
     um .*= 0.5
 
     # Integration in the fist step
@@ -36,10 +43,11 @@ function WHI_operator_i!(uproj,uin,DP::Prob2D)
     uproj .= (0.5*(cos(omega*tt)-a0)).*u
     # Loop over time
     for it = 1:nt
-        rhside .= (2.0*u .- dt2*force*cos(omega*tt)*cos_omega_dt)
-        up, log1 = cg(DP.G,rhside,Pl=DP.precond,
-                      log=true,reltol=1e-14,verbose=false,
-                      maxiter=100)
+        rhside .= 2.0 .* u
+        rhside .-= (dt2*cos(omega*tt)*cos_omega_dt) .* force
+        cg!(up,DP.G,rhside,Pl=DP.precond,
+            log=false,reltol=1e-14,verbose=false,
+            maxiter=100,statevars=statevars)
         up .-= um
         # Swap
         um .= u
@@ -48,7 +56,8 @@ function WHI_operator_i!(uproj,uin,DP::Prob2D)
         uproj .+= (cos(omega*(tt))-a0).*u
     end
     # Normalize the integral
-    uproj .= (2.0*dt/T).*(uproj-0.5*(cos(omega*T)-a0).*u)
+    uproj .-= 0.5*(cos(omega*T)-a0).*u
+    uproj .*= (2.0*dt/T)
 end
 
 
@@ -57,6 +66,11 @@ end
 #######################################################################
 function WHI_operator_homi!(uproj,uin,DP::Prob2D)
 
+
+    z1 = zeros(DP.N)
+    z2 = zeros(DP.N)
+    z3 = zeros(DP.N)
+    statevars=CGStateVariables(z1,z2,z3)
     # Use the arrays allocated in the problem struct
     u = DP.u
     um = DP.um
@@ -76,10 +90,10 @@ function WHI_operator_homi!(uproj,uin,DP::Prob2D)
     # Start from the inital data provided as input
     u .= uin
     # Initialize to have zero velocity
-    up .= 2.0*u
-    um, log1 = cg(DP.G,up,Pl=DP.precond,
+    up .= 2.0 .* u
+    um, log1 = cg!(um,DP.G,up,Pl=DP.precond,
                   log=true,reltol=1e-14,verbose=false,
-                  maxiter=100)
+                  maxiter=100,statevars=statevars)
     DP.mg_iters[1] += 1
     DP.mg_iters[2] += log1.iters
     um .*= 0.5
@@ -89,10 +103,10 @@ function WHI_operator_homi!(uproj,uin,DP::Prob2D)
     uproj .= (0.5*(cos(omega*tt)-a0)).*u
     # Loop over time
     for it = 1:nt
-        rhside .= 2.0*u
-        up, log1 = cg(DP.G,rhside,Pl=DP.precond,
-                      log=true,reltol=1e-14,verbose=false,
-                      maxiter=100)
+        rhside .= 2.0 .* u
+        up, log1 = cg!(up,DP.G,rhside,Pl=DP.precond,
+                       log=true,reltol=1e-14,verbose=false,
+                       maxiter=100,statevars=statevars)
         DP.mg_iters[1] += 1
         DP.mg_iters[2] += log1.iters
         up .-= um
@@ -103,8 +117,8 @@ function WHI_operator_homi!(uproj,uin,DP::Prob2D)
         uproj .+= (cos(omega*(tt))-a0).*u
     end
     # Normalize the integral
-    uproj .= (2.0*dt/T).*(uproj-0.5*(cos(omega*T)-a0).*u)
-
+    uproj .-= 0.5*(cos(omega*T)-a0).*u
+    uproj .*= (2.0*dt/T)
 end
 
 function WHI_sym_operator_homi!(uproj,uin,DP::Prob2D)
@@ -114,12 +128,12 @@ end
 
 function S_WHI_operator_homi!(uproj,uin,DP::Prob2D)
     WHI_operator_homi!(uproj,uin,DP)
-    uproj .= uin - uproj
+    uproj .= uin .- uproj
 end
 
 function S_WHI_sym_operator_homi!(uproj,uin,DP::Prob2D)
     WHI_operator_homi!(uproj,uin,DP)
-    uproj .= uin - uproj
+    uproj .= uin .- uproj
     uproj .= DP.Mass*uproj
 end
 

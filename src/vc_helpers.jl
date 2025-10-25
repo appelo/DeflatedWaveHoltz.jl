@@ -1,8 +1,85 @@
-function run_example_from_file(omega, xmap::Function, ymap::Function,qmin,qmax,rmin,rmax,order,ep_tol,
-                               explicit = false, nev = 5,cgtol = 1e-12, fname = "d.jld2")
+function compare_deflated_example_from_file(DP,Q,fname = "d.jld2",nev = 5,cgtol = 1e-12)
+    
+    # Set forcing
+    set_gauss_forcing!(DP,0.1,0.2)
+    DP.force .= DP.M12*DP.force
+    S_whi_im!(y,x) = S_WHI_operator_homi!(y,x,DP)
+    ALM_WHI = LinearMap(S_whi_im!,DP.N,DP.N,issymmetric = true,ismutating=true,isposdef=true)
+    
+    # WHI first
+    # reset counter
+    DP.mg_iters .= 0
+    # decomp = load(fname,"decomp")
+    # (ev,Q) = partialeigen(decomp)
+    # Project in inner product where eigenvectors are orthogonal
+    force = zeros(DP.N)
+    force .= DP.force
+    coeff = transpose(Q)*force
+    DP.force .= force .- Q*coeff
+    
+    DP.mg_iters .= 0
+    uin = zeros(DP.N)
+    b = zeros(DP.N)
+    udefcg = zeros(DP.N)
+    WHI_operator_i!(b,uin,DP)
+    udefcg, log1 = cg!(udefcg,ALM_WHI,b,log=true,reltol=cgtol,
+                       verbose=true,
+                       maxiter=DP.N)
+    println("CG + deflate MG stats: ", DP.mg_iters[2]/DP.mg_iters[1])
+    xi = zeros(DP.N)
+    w = zeros(DP.N)
+    for i = 1:nev
+        xi .= Q[:,i]
+        w .= omega^2*xi + DP.M12*DP.Lap*DP.MINV12*xi
+        cff = 1.0/dot(xi,w)
+        udefcg .+= coeff[i]*cff*Q[:,i]
+    end
+    udefcg .= DP.MINV12*udefcg
+    # reset counter
+    DP.mg_iters .= 0
+    uwhi = zeros(DP.N)
+    uin .= uwhi
+    res_whi = zeros(length(log1.data[:resnorm]))
+    println("Starting WHI")
+    for iter = 1:length(log1.data[:resnorm])
+        WHI_operator_i!(uwhi,uin,DP)
+        res_whi[iter] = norm(uwhi-uin)
+        uin .= uwhi
+        println(iter," ",res_whi[iter])
+        if(res_whi[iter]/res_whi[1] < cgtol)
+            res_whi = res_whi[1:iter]
+            break
+        end
+    end
+    # inflate
+    for i = 1:nev
+        xi .= Q[:,i]
+        w .= omega^2*xi + DP.M12*DP.Lap*DP.MINV12*xi
+        cff = 1.0/dot(xi,w)
+        uwhi .+= coeff[i]*cff*Q[:,i]
+    end
+    uwhi .= DP.MINV12*uwhi
+    return log1,res_whi,reshape(udefcg,DP.Nx,DP.Ny),reshape(uwhi,DP.Nx,DP.Ny)
+end
 
-    # Set up prolem
-    DP = DeflatedWaveHoltz.DirichletProb2Di(omega,xmap,ymap,qmin,qmax,rmin,rmax,order,ep_tol)
+
+
+function find_deflate(DP,fname = "d.jld2",nev = 5,evtol = 1e-12)
+    
+    println("Number of ev = ",nev)
+    A_whi_im!(y,x) = WHI_operator_homi!(y,x,DP)
+    ALM = LinearMap(A_whi_im!,DP.N,DP.N,issymmetric = true, ismutating=true, isposdef=false)
+    decomp, history = partialschur(ALM, nev=nev, tol=evtol, which=:LR)
+    jldsave(fname;decomp = decomp)
+    println(history)
+
+    return history
+end
+
+
+
+function run_example_from_file(DP,fname = "d.jld2",nev = 5,cgtol = 1e-12)
+
     # Set forcing
     set_gauss_forcing!(DP,0.1,0.2)
 
@@ -61,34 +138,6 @@ function run_example_from_file(omega, xmap::Function, ymap::Function,qmin,qmax,r
     uwhi .= DP.MINV12*uwhi
     println("Difference = ",norm(ucg-uwhi)/norm(ucg))
 
-
-    #=
-    # Non-ymmetric operator for (1-S) CG
-    S_whi_im2!(y,x) = S_WHI_operator_homi!(y,x,DP)
-    AGMRES_WHI = LinearMap(S_whi_im2!,DP.N,DP.N,issymmetric = true,ismutating=true,isposdef=true)
-
-    b = zeros(DP.N)
-    udefcg = zeros(DP.N)
-    uin .= 0.0
-    WHI_operator_i!(b,uin,DP)
-
-    udefcg, log_2 = gmres(AGMRES_WHI,b,
-    log=true,
-    reltol=cgtol,
-    restart=50,
-    verbose=true,
-    maxiter=DP.N)
-    println("GMRES + deflate MG stats: ", DP.mg_iters[2]/DP.mg_iters[1])
-    for i = 1:nev
-    xi = Q[:,i]
-    w = (omega^2*DP.Mass + DP.Mass*DP.Lap)*xi
-    cff = dot(xi,DP.Mass*xi)/dot(xi,w)
-    udefcg .+= coeff[i]*cff*Q[:,i]
-    end
-    println("Difference = ",norm(ucg-udefcg)/norm(ucg))
-    println("--------------------\n\n")
-    =#
-
     b = zeros(DP.N)
     udefcg = zeros(DP.N)
     uin .= 0.0
@@ -109,24 +158,9 @@ function run_example_from_file(omega, xmap::Function, ymap::Function,qmin,qmax,r
     return log1,log_2,res_whi,DP.x_grid,DP.y_grid,reshape(ucg,DP.Nx,DP.Ny),reshape(udefcg,DP.Nx,DP.Ny),reshape(uwhi,DP.Nx,DP.Ny)
 end
 
-function find_deflate(omega, xmap::Function, ymap::Function,qmin,qmax,rmin,rmax,order,ep_tol,
-                      explicit = false, nev = 5,evtol = 1e-12, fname = "d.jld2")
-    
-    println("Number of ev = ",nev)
-    DP = DeflatedWaveHoltz.DirichletProb2Di(omega,xmap,ymap,qmin,qmax,rmin,rmax,order,ep_tol)
-    
-    A_whi_im!(y,x) = WHI_operator_homi!(y,x,DP)
-    ALM = LinearMap(A_whi_im!,DP.N,DP.N,issymmetric = true, ismutating=true, isposdef=false)
-    decomp, history = partialschur(ALM, nev=nev, tol=evtol, which=:LR)
-    jldsave(fname;decomp = decomp)
-    println(history)
 
-    return history,DP
-end
+function compute_DCG_from_file(DP,fname = "d.jld2", nev = 5, cgtol = 1e-12)
 
-function compute_DCG_from_file(fname,omega,xmap,ymap,qmin,qmax,rmin,rmax,order,ep_tol,explicit = true,nev = 5, cgtol=1e-12)
-
-    DP = DeflatedWaveHoltz.DirichletProb2Di(omega,xmap,ymap,qmin,qmax,rmin,rmax,order,ep_tol)
     set_gauss_forcing!(DP,0.1,0.2)
     DP.force .= DP.M12*DP.force
 
@@ -232,7 +266,7 @@ function compute_DCG_from_file(fname,omega,xmap,ymap,qmin,qmax,rmin,rmax,order,e
     return xcg,history[1:iter+1]
 end
 
-function process_deflation_from_file(fname,DP,svd_tol=1e-12)
+function process_deflation_from_file(DP,fname,svd_tol=1e-12)
 
     decomp = load(fname,"decomp")
     (ev,Q) = partialeigen(decomp)
