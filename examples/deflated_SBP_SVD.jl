@@ -4,15 +4,15 @@ using CairoMakie
 using Meshes
 
 include("../src/vc_helpers.jl")
-
+cyqd#an-hivja@@m-Wozda6
 function run_SVD_case(fname,omega,nev)
 
     to = TimerOutput()
     ep_tol = 1e-4
     explicit = false
     ev_tol = 1e-14
-    svd_tol=1e-7
-    cgtol = 1e-7
+    svd_tol=1e-5
+    cgtol = 1e-12
 
     order = 4
 
@@ -142,13 +142,13 @@ end
 #nev = 10
 #run_SVD_case(fname,omega,nev)
 
-#fname = "om20_nev50.jld2"
-#omega = 20.0
-#nev = 50
-#run_SVD_case(fname,omega,nev)
-
-fname = "om40_nev100.jld2"
-omega = 40.0
-nev = 100
+fname = "om20_nev50.jld2"
+omega = 20.0
+nev = 50
 run_SVD_case(fname,omega,nev)
+
+#fname = "om40_nev100.jld2"
+#omega = 40.0
+#nev = 100
+#run_SVD_case(fname,omega,nev)
 

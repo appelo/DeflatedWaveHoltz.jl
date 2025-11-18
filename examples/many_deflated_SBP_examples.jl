@@ -1,13 +1,13 @@
 using DeflatedWaveHoltz
 using LinearAlgebra, SparseArrays, SummationByPartsOperators, IterativeSolvers, AlgebraicMultigrid, LinearMaps, ArnoldiMethod,JLD2, LaTeXStrings,TimerOutputs
 using CairoMakie
-using Meshes
+using Meshes, Printf
 
 include("../src/vc_helpers.jl")
 
 function run_case(fname,omega,nev)
 
-    ep_tol = 1e-4
+    ep_tol = 1e-3
     explicit = false
     ev_tol = 1e-14
     svd_tol=1e-12

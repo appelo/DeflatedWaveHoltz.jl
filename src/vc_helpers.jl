@@ -30,7 +30,7 @@ function compare_deflated_example_from_file(DP,Q,fname = "d.jld2",nev = 5,cgtol 
     w = zeros(DP.N)
     for i = 1:nev
         xi .= Q[:,i]
-        w .= omega^2*xi + DP.M12*DP.Lap*DP.MINV12*xi
+        w .= DP.omega^2*xi + DP.M12*DP.Lap*DP.MINV12*xi
         cff = 1.0/dot(xi,w)
         udefcg .+= coeff[i]*cff*Q[:,i]
     end
@@ -54,7 +54,7 @@ function compare_deflated_example_from_file(DP,Q,fname = "d.jld2",nev = 5,cgtol 
     # inflate
     for i = 1:nev
         xi .= Q[:,i]
-        w .= omega^2*xi + DP.M12*DP.Lap*DP.MINV12*xi
+        w .= DP.omega^2*xi + DP.M12*DP.Lap*DP.MINV12*xi
         cff = 1.0/dot(xi,w)
         uwhi .+= coeff[i]*cff*Q[:,i]
     end
@@ -131,7 +131,7 @@ function run_example_from_file(DP,fname = "d.jld2",nev = 5,cgtol = 1e-12)
     # inflate
     for i = 1:nev
         xi = Q[:,i]
-        w = omega^2*xi + DP.M12*DP.Lap*DP.MINV12*xi
+        w = DP.omega^2*xi + DP.M12*DP.Lap*DP.MINV12*xi
         cff = 1.0/dot(xi,w)
         uwhi .+= coeff[i]*cff*Q[:,i]
     end
@@ -148,7 +148,7 @@ function run_example_from_file(DP,fname = "d.jld2",nev = 5,cgtol = 1e-12)
     println("CG + deflate MG stats: ", DP.mg_iters[2]/DP.mg_iters[1])
     for i = 1:nev
         xi = Q[:,i]
-        w = omega^2*xi + DP.M12*DP.Lap*DP.MINV12*xi
+        w = DP.omega^2*xi + DP.M12*DP.Lap*DP.MINV12*xi
         cff = 1.0/dot(xi,w)
         udefcg .+= coeff[i]*cff*Q[:,i]
     end
